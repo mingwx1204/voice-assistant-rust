@@ -1,6 +1,6 @@
 [package]
 name = "voice-assistant"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Local voice assistant with agent - Rust rewrite"
 authors = []
@@ -15,6 +15,11 @@ cpal = "0.15"
 
 # === Speech-to-Text ===
 whisper-rs = "0.12"
+
+# === System Tray + Menu ===
+tray-icon = "0.19"
+muda = "0.15"
+winit = "0.30"
 
 # === HTTP Client ===
 reqwest = { version = "0.12", features = ["blocking", "json"] }
@@ -36,6 +41,11 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
 dirs = "6"
 urlencoding = "2"
+windows-sys = { version = "0.59", features = [
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Foundation",
+] }
 
 # === Audio format ===
 hound = "3.5"

@@ -2,6 +2,9 @@
 /// =======================
 /// egui 即时模式 GUI — 完整版
 
+pub mod tray;
+pub mod hotkey;
+
 use eframe::egui;
 
 /// 聊天消息
