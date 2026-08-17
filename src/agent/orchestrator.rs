@@ -318,7 +318,26 @@ impl AgentOrchestrator {
         tracing::info!("Recording ({:.1}s)...", duration);
 
         match &mut self.capture {
-            Some(capture) => Ok(capture.record_blocking(duration)?),
+            Some(capture) => {
+                // 启动音量更新线程
+                let volume = capture.volume.clone();
+                let app_state = self.app_state.clone();
+                let vol_thread = std::thread::spawn(move || {
+                    loop {
+                        let vol = *volume.lock().unwrap();
+                        let mut app = app_state.lock().unwrap();
+                        app.volume_level = vol;
+                        std::thread::sleep(std::time::Duration::from_millis(50));
+                    }
+                });
+
+                let result = capture.record_blocking(duration);
+
+                // 停止音量更新线程
+                drop(vol_thread);
+
+                result
+            }
             None => {
                 tracing::warn!("No audio capture available");
                 Ok(Vec::new())
@@ -352,7 +371,13 @@ impl AgentOrchestrator {
         // 检查工具调用
         if let Some(tool_result) = self.tools.detect_and_execute(user_text) {
             if tool_result.should_respond {
-                // 如果是搜索结果，用 LLM 做摘要
+                // 如果需要 LLM 处理（如翻译）
+                if tool_result.needs_llm {
+                    if let Some(prompt) = &tool_result.llm_prompt {
+                        return self.call_llm(prompt, None);
+                    }
+                }
+                // 搜索结果用 LLM 摘要
                 if tool_result.output.starts_with("搜索结果：") {
                     return self.summarize_search(user_text, &tool_result.output);
                 }
@@ -479,6 +504,22 @@ impl AgentOrchestrator {
         {
             let mut app = self.app_state.lock().unwrap();
             app.set_state(AppState::Idle);
+        }
+    }
+
+    /// ===== 通用 LLM 调用 =====
+    fn call_llm(&mut self, prompt: &str, system: Option<&str>) -> String {
+        let Some(ref mut llm) = self.llm else {
+            return "LLM 不可用".to_string();
+        };
+        if !llm.is_available() {
+            return "LLM 不可用".to_string();
+        }
+        let sys = system.unwrap_or("你是Mini，简洁回答。");
+        let history = self.chat_history.clone();
+        match llm.chat_stream(prompt, Some(sys), &history, |_| {}) {
+            Ok(text) => text,
+            Err(e) => format!("LLM 错误: {}", e),
         }
     }
 

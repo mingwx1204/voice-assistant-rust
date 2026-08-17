@@ -1,6 +1,6 @@
 [package]
 name = "voice-assistant"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Local voice assistant with agent - Rust rewrite"
 authors = []
@@ -16,7 +16,7 @@ cpal = "0.15"
 # === Speech-to-Text ===
 whisper-rs = "0.12"
 
-# === HTTP Client (for LLM API) ===
+# === HTTP Client ===
 reqwest = { version = "0.12", features = ["blocking", "json"] }
 
 # === Memory / Database ===

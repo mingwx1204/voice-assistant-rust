@@ -13,6 +13,8 @@ pub struct AudioCapture {
     device: Device,
     config: StreamConfig,
     sample_rate: u32,
+    /// 实时音量 (0.0-1.0)
+    pub volume: Arc<Mutex<f32>>,
 }
 
 impl AudioCapture {
@@ -52,6 +54,7 @@ impl AudioCapture {
             device,
             config,
             sample_rate: actual_sample_rate,
+            volume: Arc::new(Mutex::new(0.0)),
         })
     }
 
@@ -60,6 +63,7 @@ impl AudioCapture {
         let total_frames = (self.sample_rate as f32 * duration_secs) as usize;
         let buffer = Arc::new(Mutex::new(Vec::with_capacity(total_frames)));
         let buffer_clone = buffer.clone();
+        let volume_clone = self.volume.clone();
 
         let (tx, rx) = mpsc::sync_channel::<()>(1);
 
@@ -72,6 +76,11 @@ impl AudioCapture {
             SampleFormat::F32 => self.device.build_input_stream(
                 &self.config,
                 move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                    // 计算实时音量
+                    let sum: f32 = data.iter().map(|s| s * s).sum();
+                    let rms = (sum / data.len() as f32).sqrt();
+                    *volume_clone.lock().unwrap() = (rms * 3.0).min(1.0);
+
                     let mut buf = buffer_clone.lock().unwrap();
                     buf.extend_from_slice(data);
                     if buf.len() >= total_frames {
@@ -84,6 +93,10 @@ impl AudioCapture {
             SampleFormat::I16 => self.device.build_input_stream(
                 &self.config,
                 move |data: &[i16], _: &cpal::InputCallbackInfo| {
+                    let sum: f64 = data.iter().map(|&s| (s as f64 / i16::MAX as f64).powi(2)).sum();
+                    let rms = (sum / data.len() as f64).sqrt() as f32;
+                    *volume_clone.lock().unwrap() = (rms * 3.0).min(1.0);
+
                     let mut buf = buffer_clone.lock().unwrap();
                     for &sample in data {
                         buf.push(sample as f32 / i16::MAX as f32);
