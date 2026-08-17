@@ -1,0 +1,9 @@
+[build]
+jobs = 4
+
+[net]
+retry = 5
+
+[env]
+LIBCLANG_PATH = "C:\\Users\\Administrator\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\site-packages\\clang\\native"
+CMAKE = "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe"

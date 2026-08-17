@@ -1,0 +1,47 @@
+[package]
+name = "voice-assistant"
+version = "0.1.0"
+edition = "2021"
+description = "Local voice assistant with agent - Rust rewrite"
+authors = []
+
+[dependencies]
+# === GUI ===
+eframe = "0.31"
+egui = "0.31"
+
+# === Audio I/O ===
+cpal = "0.15"
+
+# === Speech-to-Text ===
+whisper-rs = "0.12"
+
+# === HTTP Client (for LLM API) ===
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+
+# === Memory / Database ===
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# === Serialization ===
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# === Logging ===
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# === Utilities ===
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4"] }
+dirs = "6"
+urlencoding = "2"
+
+# === Audio format ===
+hound = "3.5"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
