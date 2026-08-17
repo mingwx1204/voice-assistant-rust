@@ -164,11 +164,19 @@ impl AppConfig {
         }
 
         let config = Self::default();
-        // 尝试保存默认配置
-        if let Ok(content) = serde_json::to_string_pretty(&config) {
-            let _ = std::fs::write(&config_path, content);
-            tracing::info!("Default config written to {:?}", config_path);
-        }
+        config.save();
         config
+    }
+
+    /// 保存配置到文件
+    pub fn save(&self) {
+        let config_path = std::env::current_dir()
+            .unwrap_or_default()
+            .join("config.json");
+
+        if let Ok(content) = serde_json::to_string_pretty(&self) {
+            let _ = std::fs::write(&config_path, content);
+            tracing::info!("Config saved to {:?}", config_path);
+        }
     }
 }

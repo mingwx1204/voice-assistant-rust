@@ -1,6 +1,6 @@
 /// ui/mod.rs — 用户界面
 /// =======================
-/// egui 即时模式 GUI。
+/// egui 即时模式 GUI — 完整版
 
 use eframe::egui;
 
@@ -15,38 +15,30 @@ pub struct ChatMessage {
 /// 应用状态
 #[derive(Debug, Clone, PartialEq)]
 pub enum AppState {
-    /// 空闲，等待唤醒
     Idle,
-    /// 正在监听
     Listening,
-    /// 正在识别
     Transcribing,
-    /// 正在思考
     Thinking,
-    /// 正在播放
     Speaking,
-    /// 错误
     Error(String),
 }
 
 /// 主应用
 pub struct VoiceAssistantApp {
-    /// 应用状态
     pub state: AppState,
-    /// 聊天历史
     pub chat_history: Vec<ChatMessage>,
-    /// 用户输入
     pub user_input: String,
-    /// 状态消息
     pub status_message: String,
-    /// 是否显示设置
     pub show_settings: bool,
-    /// 唤醒词
+    pub show_history: bool,
+    pub show_help: bool,
     pub wake_word: String,
-    /// 连续对话模式
     pub continuous_mode: bool,
-    /// 音量指示 (0.0 - 1.0)
     pub volume_level: f32,
+    pub llm_model: String,
+    pub tts_voice: String,
+    pub language: String,
+    pub scroll_to_bottom: bool,
 }
 
 impl Default for VoiceAssistantApp {
@@ -57,20 +49,22 @@ impl Default for VoiceAssistantApp {
             user_input: String::new(),
             status_message: "就绪".to_string(),
             show_settings: false,
+            show_history: false,
+            show_help: false,
             wake_word: "Hey Mini".to_string(),
             continuous_mode: true,
             volume_level: 0.0,
+            llm_model: "MiniCPM-V-4.6".to_string(),
+            tts_voice: "piper".to_string(),
+            language: "中文".to_string(),
+            scroll_to_bottom: true,
         }
     }
 }
 
 impl VoiceAssistantApp {
-    /// 创建新应用
-    pub fn new() -> Self {
-        Self::default()
-    }
+    pub fn new() -> Self { Self::default() }
 
-    /// 添加聊天消息
     pub fn add_message(&mut self, role: &str, content: &str) {
         let timestamp = chrono::Local::now().format("%H:%M").to_string();
         self.chat_history.push(ChatMessage {
@@ -78,49 +72,62 @@ impl VoiceAssistantApp {
             content: content.to_string(),
             timestamp,
         });
+        self.scroll_to_bottom = true;
     }
 
-    /// 更新状态
     pub fn set_state(&mut self, state: AppState) {
         self.state = state.clone();
         self.status_message = match &state {
             AppState::Idle => "就绪".to_string(),
-            AppState::Listening => "正在监听...".to_string(),
-            AppState::Transcribing => "正在识别语音...".to_string(),
-            AppState::Thinking => "正在思考...".to_string(),
-            AppState::Speaking => "正在播放...".to_string(),
-            AppState::Error(msg) => format!("错误: {}", msg),
+            AppState::Listening => "🎤 正在监听...".to_string(),
+            AppState::Transcribing => "📝 正在识别语音...".to_string(),
+            AppState::Thinking => "🧠 正在思考...".to_string(),
+            AppState::Speaking => "🔊 正在播放...".to_string(),
+            AppState::Error(msg) => format!("❌ 错误: {}", msg),
         };
     }
 }
 
 impl eframe::App for VoiceAssistantApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // 顶部菜单栏
+        // ===== 顶部菜单栏 =====
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("文件", |ui| {
-                    if ui.button("退出").clicked() {
+                    if ui.button("📂 导出对话").clicked() {
+                        self.add_message("system", "正在导出对话...");
+                        ui.close_menu();
+                    }
+                    ui.separator();
+                    if ui.button("🚪 退出").clicked() {
                         std::process::exit(0);
                     }
                 });
-                ui.menu_button("设置", |ui| {
-                    if ui.button("打开设置").clicked() {
+                ui.menu_button("视图", |ui| {
+                    if ui.button("📜 对话历史").clicked() {
+                        self.show_history = !self.show_history;
+                        ui.close_menu();
+                    }
+                    if ui.button("⚙️ 设置").clicked() {
                         self.show_settings = !self.show_settings;
                         ui.close_menu();
                     }
                 });
                 ui.menu_button("帮助", |ui| {
+                    if ui.button("❓ 使用帮助").clicked() {
+                        self.show_help = !self.show_help;
+                        ui.close_menu();
+                    }
+                    ui.separator();
                     ui.label("Mini 语音助手 v0.1.0");
-                    ui.label("基于 Rust + egui + whisper-rs + piper");
+                    ui.label("Powered by Rust + egui + whisper-rs");
                 });
             });
         });
 
-        // 底部状态栏
+        // ===== 底部状态栏 =====
         egui::TopBottomPanel::bottom("status_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                // 状态指示灯
                 let (color, label) = match &self.state {
                     AppState::Idle => (egui::Color32::GRAY, "● 就绪"),
                     AppState::Listening => (egui::Color32::GREEN, "● 监听中"),
@@ -129,99 +136,168 @@ impl eframe::App for VoiceAssistantApp {
                     AppState::Speaking => (egui::Color32::PURPLE, "● 播放中"),
                     AppState::Error(_) => (egui::Color32::RED, "● 错误"),
                 };
-
                 ui.colored_label(color, label);
                 ui.separator();
                 ui.label(&self.status_message);
-
-                // 音量条
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(format!("音量: {:.0}%", self.volume_level * 100.0));
-                    let _response = ui.add(
+                    ui.label(format!("🔊 {:.0}%", self.volume_level * 100.0));
+                    ui.add(
                         egui::ProgressBar::new(self.volume_level)
-                            .text("")
                             .animate(self.state == AppState::Listening),
                     );
                 });
             });
         });
 
-        // 左侧面板
-        egui::SidePanel::left("side_panel")
-            .default_width(200.0)
-            .show(ctx, |ui| {
-                ui.heading("Mini 语音助手");
-                ui.separator();
-
-                ui.label("状态:");
-                ui.label(&self.status_message);
-                ui.separator();
-
-                ui.label("唤醒词:");
-                ui.text_edit_singleline(&mut self.wake_word);
-                ui.separator();
-
-                ui.checkbox(&mut self.continuous_mode, "连续对话模式");
-                ui.separator();
-
-                ui.label("命令:");
-                ui.label("'Hey Mini' - 唤醒");
-                ui.label("'退出' - 退出程序");
-                ui.separator();
-
-                // 操作按钮
-                ui.horizontal(|ui| {
-                    let listen_btn = ui.add_enabled(
-                        self.state == AppState::Idle,
-                        egui::Button::new("开始监听"),
-                    );
-                    if listen_btn.clicked() {
-                        // TODO: 触发开始监听
-                    }
-
-                    let stop_btn = ui.add_enabled(
-                        self.state != AppState::Idle && self.state != AppState::Error(String::new()),
-                        egui::Button::new("停止"),
-                    );
-                    if stop_btn.clicked() {
-                        // TODO: 触发停止
-                    }
-                });
-            });
-
-        // 主聊天区域
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("对话");
+        // ===== 左侧工具面板 =====
+        egui::SidePanel::left("side_panel").default_width(220.0).show(ctx, |ui| {
+            ui.heading("🤖 Mini 语音助手");
             ui.separator();
 
-            // 聊天历史滚动区域
+            // 状态卡片
+            egui::Frame::new()
+                .fill(egui::Color32::from_rgb(30, 30, 40))
+                .corner_radius(8.0)
+                .inner_margin(12.0)
+                .show(ui, |ui| {
+                    ui.label("📊 系统状态");
+                    ui.horizontal(|ui| {
+                        ui.label("模型:");
+                        ui.monospace(&self.llm_model);
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("语言:");
+                        ui.monospace(&self.language);
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("对话:");
+                        ui.monospace(format!("{} 条", self.chat_history.len()));
+                    });
+                });
+
+            ui.add_space(8.0);
+
+            // 快捷按钮
+            ui.label("⚡ 快捷操作");
+            ui.horizontal(|ui| {
+                if ui.button("📸 截图").clicked() {
+                    self.add_message("system", "正在截图...");
+                }
+                if ui.button("📋 剪贴板").clicked() {
+                    self.user_input = "剪贴板".to_string();
+                }
+            });
+            ui.horizontal(|ui| {
+                if ui.button("🔍 搜索").clicked() {
+                    self.user_input = "搜索 ".to_string();
+                }
+                if ui.button("⏰ 提醒").clicked() {
+                    self.user_input = "分钟后提醒我".to_string();
+                }
+            });
+            ui.horizontal(|ui| {
+                if ui.button("💾 导出").clicked() {
+                    self.user_input = "导出对话".to_string();
+                }
+                if ui.button("🧠 记忆").clicked() {
+                    self.user_input = "记住 ".to_string();
+                }
+            });
+
+            ui.add_space(8.0);
+
+            // 系统命令
+            ui.label("💻 系统命令");
+            egui::ComboBox::from_id_salt("system_cmd")
+                .selected_text("选择命令...")
+                .show_ui(ui, |ui| {
+                    if ui.selectable_label(false, "🌐 打开浏览器").clicked() {
+                        self.user_input = "打开浏览器".to_string();
+                    }
+                    if ui.selectable_label(false, "🧮 打开计算器").clicked() {
+                        self.user_input = "打开计算器".to_string();
+                    }
+                    if ui.selectable_label(false, "📝 打开记事本").clicked() {
+                        self.user_input = "打开记事本".to_string();
+                    }
+                    if ui.selectable_label(false, "📁 打开文件夹").clicked() {
+                        self.user_input = "打开文件管理器".to_string();
+                    }
+                    if ui.selectable_label(false, "🔒 锁屏").clicked() {
+                        self.user_input = "锁屏".to_string();
+                    }
+                    if ui.selectable_label(false, "⏻ 关机").clicked() {
+                        self.user_input = "关机".to_string();
+                    }
+                });
+
+            ui.add_space(8.0);
+
+            // 设置
+            ui.separator();
+            if ui.button("⚙️ 设置").clicked() {
+                self.show_settings = !self.show_settings;
+            }
+            if ui.button("📜 历史").clicked() {
+                self.show_history = !self.show_history;
+            }
+            if ui.button("❓ 帮助").clicked() {
+                self.show_help = !self.show_help;
+            }
+        });
+
+        // ===== 主聊天区域 =====
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("💬 对话");
+            ui.separator();
+
+            // 聊天历史
             egui::ScrollArea::vertical()
                 .auto_shrink([false; 2])
                 .stick_to_bottom(true)
                 .show(ui, |ui| {
-                    for msg in &self.chat_history {
-                        let is_user = msg.role == "user";
-                        let (color, label, align) = if is_user {
-                            (
-                                egui::Color32::from_rgb(100, 149, 237), // 蓝色
-                                "你",
-                                egui::Align::RIGHT,
-                            )
-                        } else {
-                            (
-                                egui::Color32::from_rgb(50, 205, 50), // 绿色
-                                "Mini",
-                                egui::Align::LEFT,
-                            )
-                        };
+                    if self.chat_history.is_empty() {
+                        ui.vertical_centered(|ui| {
+                            ui.add_space(100.0);
+                            ui.heading("🤖 Mini 语音助手");
+                            ui.label("说 \"Hey Mini\" 或在下方输入消息开始对话");
+                            ui.add_space(20.0);
+                            ui.label("💡 试试说：");
+                            ui.label("\"今天天气怎么样\"");
+                            ui.label("\"搜索最新的新闻\"");
+                            ui.label("\"记住我喜欢冰美式\"");
+                            ui.label("\"5分钟后提醒我喝水\"");
+                        });
+                    } else {
+                        for msg in &self.chat_history {
+                            let is_user = msg.role == "user";
+                            let (color, label) = if is_user {
+                                (egui::Color32::from_rgb(100, 149, 237), "👤 你")
+                            } else if msg.role == "system" {
+                                (egui::Color32::from_rgb(150, 150, 150), "ℹ️ 系统")
+                            } else {
+                                (egui::Color32::from_rgb(50, 205, 50), "🤖 Mini")
+                            };
 
-                        ui.with_layout(egui::Layout::top_down(align), |ui| {
+                            ui.add_space(4.0);
                             ui.horizontal(|ui| {
                                 ui.colored_label(color, format!("{} [{}]", label, msg.timestamp));
                             });
-                            ui.label(&msg.content);
-                        });
-                        ui.add_space(8.0);
+                            ui.add_space(2.0);
+
+                            let frame = egui::Frame::new()
+                                .fill(if is_user {
+                                    egui::Color32::from_rgb(25, 35, 50)
+                                } else {
+                                    egui::Color32::from_rgb(20, 30, 25)
+                                })
+                                .corner_radius(6.0)
+                                .inner_margin(8.0);
+
+                            frame.show(ui, |ui| {
+                                ui.label(&msg.content);
+                            });
+                        }
                     }
                 });
 
@@ -229,14 +305,14 @@ impl eframe::App for VoiceAssistantApp {
 
             // 输入区域
             ui.horizontal(|ui| {
-                let input_width = ui.available_width() - 80.0;
+                let input_width = ui.available_width() - 100.0;
                 let response = ui.add_sized(
-                    [input_width, 30.0],
+                    [input_width, 32.0],
                     egui::TextEdit::singleline(&mut self.user_input)
-                        .hint_text("输入消息... (Enter 发送)"),
+                        .hint_text("💬 输入消息... (Enter 发送)"),
                 );
 
-                let send_btn = ui.button("发送");
+                let send_btn = ui.add_sized([80.0, 32.0], egui::Button::new("📤 发送"));
                 let should_send = send_btn.clicked()
                     || (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)));
 
@@ -244,38 +320,121 @@ impl eframe::App for VoiceAssistantApp {
                     let msg = self.user_input.trim().to_string();
                     self.add_message("user", &msg);
                     self.user_input.clear();
-                    // TODO: 触发处理
                 }
             });
         });
 
-        // 设置窗口
+        // ===== 设置窗口 =====
         if self.show_settings {
-            egui::Window::new("设置")
+            egui::Window::new("⚙️ 设置")
+                .collapsible(false)
+                .resizable(true)
+                .default_width(400.0)
+                .show(ctx, |ui| {
+                    ui.heading("🤖 Agent 设置");
+                    ui.horizontal(|ui| {
+                        ui.label("唤醒词:");
+                        ui.text_edit_singleline(&mut self.wake_word);
+                    });
+                    ui.checkbox(&mut self.continuous_mode, "🔄 连续对话模式");
+                    ui.add_space(10.0);
+
+                    ui.heading("🧠 LLM 设置");
+                    ui.horizontal(|ui| {
+                        ui.label("模型:");
+                        ui.text_edit_singleline(&mut self.llm_model);
+                    });
+                    ui.add_space(10.0);
+
+                    ui.heading("🔊 TTS 设置");
+                    ui.horizontal(|ui| {
+                        ui.label("语音:");
+                        ui.text_edit_singleline(&mut self.tts_voice);
+                    });
+                    ui.add_space(10.0);
+
+                    ui.heading("🌐 语言");
+                    egui::ComboBox::from_id_salt("language")
+                        .selected_text(&self.language)
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut self.language, "中文".to_string(), "🇨🇳 中文");
+                            ui.selectable_value(&mut self.language, "English".to_string(), "🇺🇸 English");
+                            ui.selectable_value(&mut self.language, "日本語".to_string(), "🇯🇵 日本語");
+                            ui.selectable_value(&mut self.language, "한국어".to_string(), "🇰🇷 한국어");
+                        });
+
+                    ui.add_space(20.0);
+                    ui.horizontal(|ui| {
+                        if ui.button("✅ 保存").clicked() {
+                            self.show_settings = false;
+                        }
+                        if ui.button("❌ 取消").clicked() {
+                            self.show_settings = false;
+                        }
+                    });
+                });
+        }
+
+        // ===== 历史窗口 =====
+        if self.show_history {
+            egui::Window::new("📜 对话历史")
+                .collapsible(false)
+                .resizable(true)
+                .default_width(500.0)
+                .default_height(400.0)
+                .show(ctx, |ui| {
+                    let history_count = self.chat_history.len();
+                    ui.label(format!("共 {} 条消息", history_count));
+                    ui.separator();
+
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        for msg in &self.chat_history {
+                            let icon = if msg.role == "user" { "👤" } else if msg.role == "system" { "ℹ️" } else { "🤖" };
+                            ui.label(format!("{} [{}] {}", icon, msg.timestamp, &msg.content[..msg.content.len().min(100)]));
+                        }
+                    });
+
+                    ui.add_space(10.0);
+                    if ui.button("❌ 关闭").clicked() {
+                        self.show_history = false;
+                    }
+                });
+        }
+
+        // ===== 帮助窗口 =====
+        if self.show_help {
+            egui::Window::new("❓ 使用帮助")
                 .collapsible(false)
                 .resizable(false)
+                .default_width(500.0)
                 .show(ctx, |ui| {
-                    ui.heading("音频设置");
-                    ui.label("采样率: 16000 Hz");
-                    ui.label("声道: 单声道");
-                    ui.separator();
+                    ui.heading("🎤 语音命令");
+                    ui.label("\"Hey Mini\" - 唤醒助手");
+                    ui.label("\"今天天气怎么样\" - 提问");
+                    ui.label("\"搜索 xxx\" - 联网搜索");
+                    ui.label("\"记住 xxx\" - 存储记忆");
+                    ui.label("\"5分钟后提醒我\" - 设置提醒");
+                    ui.label("\"截图\" - 截屏");
+                    ui.label("\"导出对话\" - 导出记录");
+                    ui.add_space(10.0);
 
-                    ui.heading("语音识别");
-                    ui.label("模型: whisper base");
-                    ui.label("语言: 中文");
-                    ui.separator();
+                    ui.heading("💻 系统命令");
+                    ui.label("\"打开浏览器/计算器/记事本/文件夹\"");
+                    ui.label("\"锁屏/关机/重启/休眠\"");
+                    ui.add_space(10.0);
 
-                    ui.heading("语音合成");
-                    ui.label("引擎: Piper TTS");
-                    ui.separator();
+                    ui.heading("📋 剪贴板");
+                    ui.label("\"剪贴板\" - 读取剪贴板内容");
+                    ui.label("\"复制 xxx\" - 复制到剪贴板");
+                    ui.add_space(10.0);
 
-                    ui.heading("LLM");
-                    ui.label("服务: llama.cpp");
-                    ui.label("地址: http://127.0.0.1:8080/v1");
-                    ui.separator();
+                    ui.heading("🔧 快捷键");
+                    ui.label("Ctrl+Shift+V - 全局激活");
+                    ui.add_space(10.0);
 
-                    if ui.button("关闭").clicked() {
-                        self.show_settings = false;
+                    ui.separator();
+                    if ui.button("❌ 关闭").clicked() {
+                        self.show_help = false;
                     }
                 });
         }

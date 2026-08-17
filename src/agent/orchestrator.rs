@@ -16,7 +16,7 @@ use crate::agent::{AgentPersona, ToolRegistry};
 use crate::audio::{AudioCapture, AudioPlayback};
 use crate::config::AppConfig;
 use crate::llm::{ChatMessage, LlmClient};
-use crate::memory::MemoryDatabase;
+use crate::memory::{MemoryDatabase, KnowledgeBase};
 use crate::stt::SpeechToText;
 use crate::tts::TextToSpeech;
 use crate::ui::{AppState, VoiceAssistantApp};
@@ -31,6 +31,7 @@ pub struct AgentOrchestrator {
     tts: Option<TextToSpeech>,
     llm: Option<LlmClient>,
     db: Option<Arc<Mutex<MemoryDatabase>>>,
+    kb: Option<Arc<Mutex<KnowledgeBase>>>,
     tools: ToolRegistry,
     persona: AgentPersona,
 
@@ -68,6 +69,7 @@ impl AgentOrchestrator {
             tts: None,
             llm: None,
             db: None,
+            kb: None,
             tools,
             persona,
             capture: None,
@@ -90,6 +92,20 @@ impl AgentOrchestrator {
         let db_arc = Arc::new(Mutex::new(db));
         self.db = Some(Arc::clone(&db_arc));
         self.tools.set_database(Arc::clone(&db_arc));
+
+        // 初始化知识库
+        let data_dir = dirs::data_local_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("voice-assistant");
+        match KnowledgeBase::new(&data_dir) {
+            Ok(kb) => {
+                tracing::info!("Knowledge base: {} documents, {} chunks", kb.document_count(), kb.chunk_count());
+                self.kb = Some(Arc::new(Mutex::new(kb)));
+            }
+            Err(e) => {
+                tracing::warn!("Knowledge base init failed: {}", e);
+            }
+        }
 
         // 初始化音频
         match AudioCapture::new(
@@ -379,35 +395,44 @@ impl AgentOrchestrator {
         self.persona.get_service_unavailable_response()
     }
 
-    /// 构建记忆上下文
+    /// 构建记忆上下文（包含 RAG 知识库）
     fn build_memory_context(&self, query: &str) -> String {
-        let Some(ref db) = self.db else {
-            return String::new();
-        };
-
-        let db = db.lock().unwrap();
         let mut context = String::new();
 
-        // 关键词搜索相关记忆
-        if let Ok(memories) = db.search_memories_fts(query, 3) {
-            if !memories.is_empty() {
-                context.push_str("相关的记忆：\n");
-                for (_, content, category, _) in &memories {
-                    context.push_str(&format!("- [{}] {}\n", category, content));
+        // 1. 从知识库检索相关文档
+        if let Some(ref kb) = self.kb {
+            let kb = kb.lock().unwrap();
+            let rag_results = kb.search(query, 3);
+            if !rag_results.is_empty() {
+                context.push_str("相关知识：\n");
+                for (content, score) in &rag_results {
+                    context.push_str(&format!("- [相关度:{:.1}] {}\n", score, content));
                 }
+                context.push('\n');
             }
         }
 
-        // 最近的对话摘要
-        if let Ok(conversations) = db.get_recent_conversations(&self.session_id, 6) {
-            if !conversations.is_empty() {
-                if !context.is_empty() {
+        // 2. 从记忆数据库检索
+        if let Some(ref db) = self.db {
+            let db = db.lock().unwrap();
+            if let Ok(memories) = db.search_memories_fts(query, 3) {
+                if !memories.is_empty() {
+                    context.push_str("相关记忆：\n");
+                    for (_, content, category, _) in &memories {
+                        context.push_str(&format!("- [{}] {}\n", category, content));
+                    }
                     context.push('\n');
                 }
-                context.push_str("最近的对话：\n");
-                for (role, content, _) in &conversations {
-                    let prefix = if role == "user" { "用户" } else { "助手" };
-                    context.push_str(&format!("{}: {}\n", prefix, content));
+            }
+
+            // 最近对话
+            if let Ok(conversations) = db.get_recent_conversations(&self.session_id, 6) {
+                if !conversations.is_empty() {
+                    context.push_str("最近对话：\n");
+                    for (role, content, _) in &conversations {
+                        let prefix = if role == "user" { "用户" } else { "助手" };
+                        context.push_str(&format!("{}: {}\n", prefix, content));
+                    }
                 }
             }
         }
