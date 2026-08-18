@@ -262,7 +262,11 @@ impl AgentOrchestrator {
             self.turn_count += 1;
 
             // ===== 记忆提炼 =====
-            if self.turn_count > 0 && self.turn_count % self.config.memory.extract_interval == 0 {
+            if self.turn_count > 0
+                && self
+                    .turn_count
+                    .is_multiple_of(self.config.memory.extract_interval)
+            {
                 self.extract_memories();
             }
 

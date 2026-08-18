@@ -12,12 +12,12 @@ pub fn render_markdown(ui: &mut egui::Ui, text: &str) {
         let line = line.trim();
 
         // 标题
-        if line.starts_with("### ") {
-            ui.heading(&line[4..]);
-        } else if line.starts_with("## ") {
-            ui.heading(&line[3..]);
-        } else if line.starts_with("# ") {
-            ui.heading(&line[2..]);
+        if let Some(text) = line.strip_prefix("### ") {
+            ui.heading(text);
+        } else if let Some(text) = line.strip_prefix("## ") {
+            ui.heading(text);
+        } else if let Some(text) = line.strip_prefix("# ") {
+            ui.heading(text);
         }
         // 加粗
         else if line.starts_with("**") && line.ends_with("**") {
@@ -32,7 +32,7 @@ pub fn render_markdown(ui: &mut egui::Ui, text: &str) {
             });
         }
         // 编号列表
-        else if line.chars().next().map_or(false, |c| c.is_ascii_digit()) && line.contains(". ") {
+        else if line.chars().next().is_some_and(|c| c.is_ascii_digit()) && line.contains(". ") {
             ui.label(line);
         }
         // 代码块
@@ -40,8 +40,7 @@ pub fn render_markdown(ui: &mut egui::Ui, text: &str) {
             // 跳过代码块标记
         }
         // 引用
-        else if line.starts_with("> ") {
-            let quote_text = &line[2..];
+        else if let Some(quote_text) = line.strip_prefix("> ") {
             ui.horizontal(|ui| {
                 ui.colored_label(egui::Color32::from_rgb(150, 150, 150), "│");
                 ui.label(egui::RichText::new(quote_text).italics());

@@ -88,18 +88,17 @@ impl TextToSpeech {
         for ch in text.chars() {
             current.push(ch);
             // 中文句号、问号、感叹号、英文句号等
-            if ch == '。'
+            if (ch == '。'
                 || ch == '！'
                 || ch == '？'
                 || ch == '.'
                 || ch == '!'
                 || ch == '?'
                 || ch == '，'
-                || ch == ','
+                || ch == ',')
+                && current.trim().len() > 2
             {
-                if current.trim().len() > 2 {
-                    sentences.push(std::mem::take(&mut current));
-                }
+                sentences.push(std::mem::take(&mut current));
             }
         }
 

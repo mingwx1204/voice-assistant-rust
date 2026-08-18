@@ -69,6 +69,12 @@ pub struct ToolRegistry {
     task_counter: u32,
 }
 
+impl Default for ToolRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ToolRegistry {
     pub fn new() -> Self {
         Self {
@@ -594,7 +600,7 @@ $xml.LoadXml($template)
 $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Mini").Show($toast)
 "#,
-            msg.replace('"', "\"")
+            msg.replace('"', "\\\"")
         );
 
         match std::process::Command::new("powershell")

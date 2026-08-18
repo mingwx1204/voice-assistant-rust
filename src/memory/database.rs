@@ -6,6 +6,9 @@ use chrono::Local;
 use rusqlite::{params, Connection};
 use std::path::Path;
 
+/// 记忆条目: (id, content, category, importance, access_count)
+pub type MemoryRow = (i64, String, String, f32, i32);
+
 /// 记忆数据库
 pub struct MemoryDatabase {
     conn: Connection,
@@ -186,7 +189,7 @@ impl MemoryDatabase {
     }
 
     /// 获取所有记忆
-    pub fn get_all_memories(&self) -> Result<Vec<(i64, String, String, f32, i32)>> {
+    pub fn get_all_memories(&self) -> Result<Vec<MemoryRow>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, content, category, importance, access_count FROM memories ORDER BY id",
         )?;
@@ -297,19 +300,9 @@ impl MemoryDatabase {
 }
 
 /// 记忆统计信息
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct MemoryStats {
     pub conversations: usize,
     pub memories: usize,
     pub pending_reminders: usize,
-}
-
-impl Default for MemoryStats {
-    fn default() -> Self {
-        Self {
-            conversations: 0,
-            memories: 0,
-            pending_reminders: 0,
-        }
-    }
 }
