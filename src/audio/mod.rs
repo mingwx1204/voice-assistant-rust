@@ -1,15 +1,14 @@
 /// audio/mod.rs — 音频子系统
 /// ============================
 /// 统一管理音频采集和播放。
-
 pub mod capture;
 pub mod playback;
 
 pub use capture::AudioCapture;
 pub use playback::{AudioPlayback, PlayHandle};
 
-use cpal::traits::{DeviceTrait, HostTrait};
 use anyhow::Result;
+use cpal::traits::{DeviceTrait, HostTrait};
 
 /// 列出所有音频设备
 pub fn list_devices() -> Result<()> {

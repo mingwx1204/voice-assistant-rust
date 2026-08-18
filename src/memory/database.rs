@@ -1,7 +1,6 @@
 /// memory/database.rs — SQLite 记忆数据库
 /// ==========================================
 /// 负责数据库初始化、表结构创建、CRUD 操作。
-
 use anyhow::{Context, Result};
 use chrono::Local;
 use rusqlite::{params, Connection};
@@ -87,12 +86,7 @@ impl MemoryDatabase {
     // === 对话操作 ===
 
     /// 保存对话
-    pub fn save_conversation(
-        &self,
-        session_id: &str,
-        role: &str,
-        content: &str,
-    ) -> Result<()> {
+    pub fn save_conversation(&self, session_id: &str, role: &str, content: &str) -> Result<()> {
         self.conn.execute(
             "INSERT INTO conversations (session_id, role, content) VALUES (?, ?, ?)",
             params![session_id, role, content],
@@ -163,7 +157,11 @@ impl MemoryDatabase {
     }
 
     /// 搜索记忆 (FTS5)
-    pub fn search_memories_fts(&self, query: &str, limit: usize) -> Result<Vec<(i64, String, String, f32)>> {
+    pub fn search_memories_fts(
+        &self,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<(i64, String, String, f32)>> {
         let mut stmt = self.conn.prepare(
             "SELECT m.id, m.content, m.category, m.importance
              FROM memories_fts fts
@@ -280,17 +278,13 @@ impl MemoryDatabase {
 
     /// 获取统计信息
     pub fn get_stats(&self) -> Result<MemoryStats> {
-        let conversations: i64 = self
-            .conn
-            .query_row("SELECT COUNT(*) FROM conversations", [], |row| {
-                row.get(0)
-            })?;
+        let conversations: i64 =
+            self.conn
+                .query_row("SELECT COUNT(*) FROM conversations", [], |row| row.get(0))?;
 
         let memories: i64 = self
             .conn
-            .query_row("SELECT COUNT(*) FROM memories", [], |row| {
-                row.get(0)
-            })?;
+            .query_row("SELECT COUNT(*) FROM memories", [], |row| row.get(0))?;
 
         let pending_reminders = self.get_pending_reminder_count()?;
 

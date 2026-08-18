@@ -1,7 +1,6 @@
 /// stt/vad.rs — Silero VAD 语音活动检测
 /// =======================================
 /// 使用能量检测作为基础 VAD（不依赖 ONNX Runtime）。
-
 use anyhow::Result;
 
 /// VAD 检测结果

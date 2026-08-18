@@ -1,7 +1,6 @@
 /// audio/playback.rs — 音频播放模块
 /// ====================================
 /// 基于 cpal 的跨平台音频播放，支持打断。
-
 use anyhow::{Context, Result};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, SampleFormat, Stream, StreamConfig};
@@ -103,7 +102,9 @@ impl AudioPlayback {
 
         stream.play().context("Failed to start playback stream")?;
 
-        let duration = std::time::Duration::from_secs_f32(frame_count as f32 / self.config.sample_rate.0 as f32);
+        let duration = std::time::Duration::from_secs_f32(
+            frame_count as f32 / self.config.sample_rate.0 as f32,
+        );
 
         Ok(PlayHandle {
             _stream: stream,

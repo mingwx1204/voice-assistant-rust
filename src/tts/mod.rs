@@ -1,7 +1,6 @@
 /// tts/mod.rs — 语音合成子系统
 /// =================================
 /// 支持流式 TTS 播放。
-
 pub mod piper;
 
 use anyhow::Result;
@@ -19,16 +18,9 @@ pub struct TextToSpeech {
 impl TextToSpeech {
     /// 创建 TTS 引擎
     pub fn new(config: &TtsConfig) -> Result<Self> {
-        let engine = PiperTts::new(
-            &config.model_dir,
-            config.speaker_id,
-            config.length_scale,
-        )?;
+        let engine = PiperTts::new(&config.model_dir, config.speaker_id, config.length_scale)?;
 
-        tracing::info!(
-            "TTS ready (sample_rate: {})",
-            engine.sample_rate(),
-        );
+        tracing::info!("TTS ready (sample_rate: {})", engine.sample_rate(),);
 
         Ok(Self {
             engine,
@@ -96,7 +88,15 @@ impl TextToSpeech {
         for ch in text.chars() {
             current.push(ch);
             // 中文句号、问号、感叹号、英文句号等
-            if ch == '。' || ch == '！' || ch == '？' || ch == '.' || ch == '!' || ch == '?' || ch == '，' || ch == ',' {
+            if ch == '。'
+                || ch == '！'
+                || ch == '？'
+                || ch == '.'
+                || ch == '!'
+                || ch == '?'
+                || ch == '，'
+                || ch == ','
+            {
                 if current.trim().len() > 2 {
                     sentences.push(std::mem::take(&mut current));
                 }

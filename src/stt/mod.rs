@@ -1,7 +1,6 @@
 /// stt/mod.rs — 语音识别子系统
 /// ================================
 /// 统一管理 VAD 和 Whisper STT。
-
 pub mod vad;
 pub mod whisper;
 

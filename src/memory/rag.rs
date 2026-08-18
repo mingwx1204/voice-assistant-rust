@@ -1,7 +1,6 @@
 /// memory/rag.rs — RAG 知识库
 /// ============================
 /// 加载本地文本文件，基于内容回答问题。
-
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 
@@ -49,18 +48,24 @@ impl KnowledgeBase {
             if path.is_file() {
                 let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
                 match ext {
-                    "txt" | "md" | "csv" => {
-                        match std::fs::read_to_string(&path) {
-                            Ok(content) => {
-                                let chunks = self.chunk_text(&content);
-                                tracing::info!("Loaded document: {:?} ({} chunks)", path.file_name(), chunks.len());
-                                self.documents.push(Document { path, content, chunks });
-                            }
-                            Err(e) => {
-                                tracing::warn!("Failed to read {:?}: {}", path, e);
-                            }
+                    "txt" | "md" | "csv" => match std::fs::read_to_string(&path) {
+                        Ok(content) => {
+                            let chunks = self.chunk_text(&content);
+                            tracing::info!(
+                                "Loaded document: {:?} ({} chunks)",
+                                path.file_name(),
+                                chunks.len()
+                            );
+                            self.documents.push(Document {
+                                path,
+                                content,
+                                chunks,
+                            });
                         }
-                    }
+                        Err(e) => {
+                            tracing::warn!("Failed to read {:?}: {}", path, e);
+                        }
+                    },
                     _ => continue,
                 }
             }

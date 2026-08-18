@@ -1,7 +1,6 @@
 /// stt/whisper.rs — Whisper 语音识别
 /// ====================================
 /// 基于 whisper-rs (whisper.cpp) 的本地语音识别。
-
 use anyhow::{Context, Result};
 use std::path::Path;
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};

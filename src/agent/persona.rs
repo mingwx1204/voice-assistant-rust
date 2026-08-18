@@ -1,7 +1,6 @@
 /// agent/persona.rs — Agent 人格设定
 /// ====================================
 /// Mini 语音助手的性格、能力、语气和行为约束。
-
 use chrono::{Datelike, Local, Timelike, Weekday};
 
 use crate::config::AgentConfig;
@@ -82,7 +81,10 @@ impl AgentPersona {
             18..=22 => "晚上好",
             _ => "你好",
         };
-        format!("{}！我是{}，你的语音助手。有什么可以帮你的？", greeting, self.name)
+        format!(
+            "{}！我是{}，你的语音助手。有什么可以帮你的？",
+            greeting, self.name
+        )
     }
 
     /// 获取无语音响应

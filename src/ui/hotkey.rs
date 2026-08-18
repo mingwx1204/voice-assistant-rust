@@ -1,7 +1,6 @@
 /// ui/hotkey.rs — 全局热键（占位）
 /// ==================================
 /// 全局热键功能需要 windows-sys，暂用占位实现。
-
 use std::sync::{Arc, Mutex};
 
 pub struct HotkeyListener {

@@ -1,7 +1,6 @@
 /// audio/capture.rs — 音频采集模块
 /// ==================================
 /// 基于 cpal 的跨平台音频采集。
-
 use anyhow::{Context, Result};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, SampleFormat, StreamConfig};
@@ -67,7 +66,8 @@ impl AudioCapture {
 
         let (tx, rx) = mpsc::sync_channel::<()>(1);
 
-        let sample_format = self.device
+        let sample_format = self
+            .device
             .default_input_config()
             .context("No input config")?
             .sample_format();
@@ -93,7 +93,10 @@ impl AudioCapture {
             SampleFormat::I16 => self.device.build_input_stream(
                 &self.config,
                 move |data: &[i16], _: &cpal::InputCallbackInfo| {
-                    let sum: f64 = data.iter().map(|&s| (s as f64 / i16::MAX as f64).powi(2)).sum();
+                    let sum: f64 = data
+                        .iter()
+                        .map(|&s| (s as f64 / i16::MAX as f64).powi(2))
+                        .sum();
                     let rms = (sum / data.len() as f64).sqrt() as f32;
                     *volume_clone.lock().unwrap() = (rms * 3.0).min(1.0);
 

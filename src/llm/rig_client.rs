@@ -2,7 +2,6 @@
 /// =======================================
 /// 通过 HTTP 调用本地 llama.cpp 的 OpenAI 兼容 API。
 /// 支持普通聊天和流式响应。
-
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
@@ -102,7 +101,8 @@ impl LlmClient {
 
     /// 检查连接
     fn check_connection(&mut self) {
-        match self.http_client
+        match self
+            .http_client
             .get(format!("{}/models", self.base_url))
             .header("Authorization", format!("Bearer {}", self.api_key))
             .send()
@@ -128,7 +128,11 @@ impl LlmClient {
     }
 
     /// 构建消息列表
-    fn build_messages(user_message: &str, system_message: Option<&str>, history: &[ChatMessage]) -> Vec<ChatMessage> {
+    fn build_messages(
+        user_message: &str,
+        system_message: Option<&str>,
+        history: &[ChatMessage],
+    ) -> Vec<ChatMessage> {
         let mut messages = Vec::new();
 
         if let Some(system) = system_message {
@@ -175,7 +179,8 @@ impl LlmClient {
 
         let start = std::time::Instant::now();
 
-        let response = self.http_client
+        let response = self
+            .http_client
             .post(format!("{}/chat/completions", self.base_url))
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
@@ -191,9 +196,8 @@ impl LlmClient {
             anyhow::bail!("LLM API error: {} - {}", status, body);
         }
 
-        let chat_response: ChatResponse = response
-            .json()
-            .context("Failed to parse LLM response")?;
+        let chat_response: ChatResponse =
+            response.json().context("Failed to parse LLM response")?;
 
         let reply = chat_response
             .choices
@@ -242,7 +246,8 @@ impl LlmClient {
 
         let start = std::time::Instant::now();
 
-        let response = self.http_client
+        let response = self
+            .http_client
             .post(format!("{}/chat/completions", self.base_url))
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")

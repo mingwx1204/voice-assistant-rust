@@ -1,9 +1,8 @@
+pub mod hotkey;
 /// ui/mod.rs — 用户界面
 /// =======================
 /// egui 即时模式 GUI — v0.4.0
-
 pub mod tray;
-pub mod hotkey;
 
 use eframe::egui;
 
@@ -22,7 +21,7 @@ pub fn render_markdown(ui: &mut egui::Ui, text: &str) {
         }
         // 加粗
         else if line.starts_with("**") && line.ends_with("**") {
-            let bold_text = &line[2..line.len()-2];
+            let bold_text = &line[2..line.len() - 2];
             ui.label(egui::RichText::new(bold_text).strong());
         }
         // 列表项
@@ -62,18 +61,26 @@ pub fn render_markdown(ui: &mut egui::Ui, text: &str) {
                     job.append(" ", 0.0, egui::TextFormat::default());
                 }
                 if word.starts_with("**") && word.ends_with("**") {
-                    job.append(&word[2..word.len()-2], 0.0, egui::TextFormat {
-                        font_id: egui::FontId::proportional(14.0),
-                        color: egui::Color32::WHITE,
-                        ..Default::default()
-                    });
+                    job.append(
+                        &word[2..word.len() - 2],
+                        0.0,
+                        egui::TextFormat {
+                            font_id: egui::FontId::proportional(14.0),
+                            color: egui::Color32::WHITE,
+                            ..Default::default()
+                        },
+                    );
                 } else if word.starts_with("`") && word.ends_with("`") {
-                    job.append(&word[1..word.len()-1], 0.0, egui::TextFormat {
-                        font_id: egui::FontId::monospace(13.0),
-                        color: egui::Color32::from_rgb(100, 200, 100),
-                        background: egui::Color32::from_rgb(40, 40, 50),
-                        ..Default::default()
-                    });
+                    job.append(
+                        &word[1..word.len() - 1],
+                        0.0,
+                        egui::TextFormat {
+                            font_id: egui::FontId::monospace(13.0),
+                            color: egui::Color32::from_rgb(100, 200, 100),
+                            background: egui::Color32::from_rgb(40, 40, 50),
+                            ..Default::default()
+                        },
+                    );
                 } else {
                     job.append(word, 0.0, egui::TextFormat::default());
                 }
@@ -146,7 +153,9 @@ impl Default for VoiceAssistantApp {
 }
 
 impl VoiceAssistantApp {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn add_message(&mut self, role: &str, content: &str) {
         let timestamp = chrono::Local::now().format("%H:%M").to_string();
@@ -233,101 +242,103 @@ impl eframe::App for VoiceAssistantApp {
         });
 
         // ===== 左侧工具面板 =====
-        egui::SidePanel::left("side_panel").default_width(220.0).show(ctx, |ui| {
-            ui.heading("🤖 Mini 语音助手");
-            ui.separator();
+        egui::SidePanel::left("side_panel")
+            .default_width(220.0)
+            .show(ctx, |ui| {
+                ui.heading("🤖 Mini 语音助手");
+                ui.separator();
 
-            // 状态卡片
-            egui::Frame::new()
-                .fill(egui::Color32::from_rgb(30, 30, 40))
-                .corner_radius(8.0)
-                .inner_margin(12.0)
-                .show(ui, |ui| {
-                    ui.label("📊 系统状态");
-                    ui.horizontal(|ui| {
-                        ui.label("模型:");
-                        ui.monospace(&self.llm_model);
+                // 状态卡片
+                egui::Frame::new()
+                    .fill(egui::Color32::from_rgb(30, 30, 40))
+                    .corner_radius(8.0)
+                    .inner_margin(12.0)
+                    .show(ui, |ui| {
+                        ui.label("📊 系统状态");
+                        ui.horizontal(|ui| {
+                            ui.label("模型:");
+                            ui.monospace(&self.llm_model);
+                        });
+                        ui.horizontal(|ui| {
+                            ui.label("语言:");
+                            ui.monospace(&self.language);
+                        });
+                        ui.horizontal(|ui| {
+                            ui.label("对话:");
+                            ui.monospace(format!("{} 条", self.chat_history.len()));
+                        });
                     });
-                    ui.horizontal(|ui| {
-                        ui.label("语言:");
-                        ui.monospace(&self.language);
-                    });
-                    ui.horizontal(|ui| {
-                        ui.label("对话:");
-                        ui.monospace(format!("{} 条", self.chat_history.len()));
-                    });
+
+                ui.add_space(8.0);
+
+                // 快捷按钮
+                ui.label("⚡ 快捷操作");
+                ui.horizontal(|ui| {
+                    if ui.button("📸 截图").clicked() {
+                        self.add_message("system", "正在截图...");
+                    }
+                    if ui.button("📋 剪贴板").clicked() {
+                        self.user_input = "剪贴板".to_string();
+                    }
                 });
-
-            ui.add_space(8.0);
-
-            // 快捷按钮
-            ui.label("⚡ 快捷操作");
-            ui.horizontal(|ui| {
-                if ui.button("📸 截图").clicked() {
-                    self.add_message("system", "正在截图...");
-                }
-                if ui.button("📋 剪贴板").clicked() {
-                    self.user_input = "剪贴板".to_string();
-                }
-            });
-            ui.horizontal(|ui| {
-                if ui.button("🔍 搜索").clicked() {
-                    self.user_input = "搜索 ".to_string();
-                }
-                if ui.button("⏰ 提醒").clicked() {
-                    self.user_input = "分钟后提醒我".to_string();
-                }
-            });
-            ui.horizontal(|ui| {
-                if ui.button("💾 导出").clicked() {
-                    self.user_input = "导出对话".to_string();
-                }
-                if ui.button("🧠 记忆").clicked() {
-                    self.user_input = "记住 ".to_string();
-                }
-            });
-
-            ui.add_space(8.0);
-
-            // 系统命令
-            ui.label("💻 系统命令");
-            egui::ComboBox::from_id_salt("system_cmd")
-                .selected_text("选择命令...")
-                .show_ui(ui, |ui| {
-                    if ui.selectable_label(false, "🌐 打开浏览器").clicked() {
-                        self.user_input = "打开浏览器".to_string();
+                ui.horizontal(|ui| {
+                    if ui.button("🔍 搜索").clicked() {
+                        self.user_input = "搜索 ".to_string();
                     }
-                    if ui.selectable_label(false, "🧮 打开计算器").clicked() {
-                        self.user_input = "打开计算器".to_string();
+                    if ui.button("⏰ 提醒").clicked() {
+                        self.user_input = "分钟后提醒我".to_string();
                     }
-                    if ui.selectable_label(false, "📝 打开记事本").clicked() {
-                        self.user_input = "打开记事本".to_string();
+                });
+                ui.horizontal(|ui| {
+                    if ui.button("💾 导出").clicked() {
+                        self.user_input = "导出对话".to_string();
                     }
-                    if ui.selectable_label(false, "📁 打开文件夹").clicked() {
-                        self.user_input = "打开文件管理器".to_string();
-                    }
-                    if ui.selectable_label(false, "🔒 锁屏").clicked() {
-                        self.user_input = "锁屏".to_string();
-                    }
-                    if ui.selectable_label(false, "⏻ 关机").clicked() {
-                        self.user_input = "关机".to_string();
+                    if ui.button("🧠 记忆").clicked() {
+                        self.user_input = "记住 ".to_string();
                     }
                 });
 
-            ui.add_space(8.0);
+                ui.add_space(8.0);
 
-            // 设置
-            ui.separator();
-            if ui.button("⚙️ 设置").clicked() {
-                self.show_settings = !self.show_settings;
-            }
-            if ui.button("📜 历史").clicked() {
-                self.show_history = !self.show_history;
-            }
-            if ui.button("❓ 帮助").clicked() {
-                self.show_help = !self.show_help;
-            }
-        });
+                // 系统命令
+                ui.label("💻 系统命令");
+                egui::ComboBox::from_id_salt("system_cmd")
+                    .selected_text("选择命令...")
+                    .show_ui(ui, |ui| {
+                        if ui.selectable_label(false, "🌐 打开浏览器").clicked() {
+                            self.user_input = "打开浏览器".to_string();
+                        }
+                        if ui.selectable_label(false, "🧮 打开计算器").clicked() {
+                            self.user_input = "打开计算器".to_string();
+                        }
+                        if ui.selectable_label(false, "📝 打开记事本").clicked() {
+                            self.user_input = "打开记事本".to_string();
+                        }
+                        if ui.selectable_label(false, "📁 打开文件夹").clicked() {
+                            self.user_input = "打开文件管理器".to_string();
+                        }
+                        if ui.selectable_label(false, "🔒 锁屏").clicked() {
+                            self.user_input = "锁屏".to_string();
+                        }
+                        if ui.selectable_label(false, "⏻ 关机").clicked() {
+                            self.user_input = "关机".to_string();
+                        }
+                    });
+
+                ui.add_space(8.0);
+
+                // 设置
+                ui.separator();
+                if ui.button("⚙️ 设置").clicked() {
+                    self.show_settings = !self.show_settings;
+                }
+                if ui.button("📜 历史").clicked() {
+                    self.show_history = !self.show_history;
+                }
+                if ui.button("❓ 帮助").clicked() {
+                    self.show_help = !self.show_help;
+                }
+            });
 
         // ===== 主聊天区域 =====
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -446,9 +457,21 @@ impl eframe::App for VoiceAssistantApp {
                         .selected_text(&self.language)
                         .show_ui(ui, |ui| {
                             ui.selectable_value(&mut self.language, "中文".to_string(), "🇨🇳 中文");
-                            ui.selectable_value(&mut self.language, "English".to_string(), "🇺🇸 English");
-                            ui.selectable_value(&mut self.language, "日本語".to_string(), "🇯🇵 日本語");
-                            ui.selectable_value(&mut self.language, "한국어".to_string(), "🇰🇷 한국어");
+                            ui.selectable_value(
+                                &mut self.language,
+                                "English".to_string(),
+                                "🇺🇸 English",
+                            );
+                            ui.selectable_value(
+                                &mut self.language,
+                                "日本語".to_string(),
+                                "🇯🇵 日本語",
+                            );
+                            ui.selectable_value(
+                                &mut self.language,
+                                "한국어".to_string(),
+                                "🇰🇷 한국어",
+                            );
                         });
 
                     ui.add_space(20.0);
@@ -477,8 +500,19 @@ impl eframe::App for VoiceAssistantApp {
 
                     egui::ScrollArea::vertical().show(ui, |ui| {
                         for msg in &self.chat_history {
-                            let icon = if msg.role == "user" { "👤" } else if msg.role == "system" { "ℹ️" } else { "🤖" };
-                            ui.label(format!("{} [{}] {}", icon, msg.timestamp, &msg.content[..msg.content.len().min(100)]));
+                            let icon = if msg.role == "user" {
+                                "👤"
+                            } else if msg.role == "system" {
+                                "ℹ️"
+                            } else {
+                                "🤖"
+                            };
+                            ui.label(format!(
+                                "{} [{}] {}",
+                                icon,
+                                msg.timestamp,
+                                &msg.content[..msg.content.len().min(100)]
+                            ));
                         }
                     });
 

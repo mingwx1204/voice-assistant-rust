@@ -1,7 +1,6 @@
 /// tts/piper.rs — Piper TTS 语音合成
 /// ====================================
 /// 使用 Python piper 通过 subprocess 合成语音。
-
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -22,7 +21,9 @@ impl PiperTts {
             for entry in std::fs::read_dir(model_dir)? {
                 let entry = entry?;
                 let path = entry.path();
-                if path.extension().and_then(|e| e.to_str()) == Some("onnx") && !path.to_string_lossy().contains(".json") {
+                if path.extension().and_then(|e| e.to_str()) == Some("onnx")
+                    && !path.to_string_lossy().contains(".json")
+                {
                     model_path = Some(path);
                     break;
                 }
@@ -30,15 +31,25 @@ impl PiperTts {
         }
 
         let model_path = model_path.unwrap_or_else(|| {
-            tracing::warn!("Piper model not found in {:?}, using placeholder", model_dir);
+            tracing::warn!(
+                "Piper model not found in {:?}, using placeholder",
+                model_dir
+            );
             PathBuf::new()
         });
 
         let sample_rate = 22050; // Piper 默认采样率
 
-        tracing::info!("Piper TTS: model={:?}, sample_rate={}", model_path, sample_rate);
+        tracing::info!(
+            "Piper TTS: model={:?}, sample_rate={}",
+            model_path,
+            sample_rate
+        );
 
-        Ok(Self { model_path, sample_rate })
+        Ok(Self {
+            model_path,
+            sample_rate,
+        })
     }
 
     /// 合成语音 — 返回 WAV 字节数据
@@ -64,7 +75,8 @@ impl PiperTts {
     fn synthesize_via_python(&self, text: &str) -> Result<Vec<u8>> {
         let output_dir = dirs::data_local_dir()
             .unwrap_or_else(|| PathBuf::from("."))
-            .join("voice-assistant").join("tts_output");
+            .join("voice-assistant")
+            .join("tts_output");
         std::fs::create_dir_all(&output_dir)?;
 
         let output_path = output_dir.join("output.wav");

@@ -6,7 +6,6 @@
 /// 1. 多轮连续对话 — 回复后继续监听，不用反复唤醒
 /// 2. 流式响应 — LLM 边生成边播放
 /// 3. 记忆提炼 — 定期用 LLM 提取关键信息存入长期记忆
-
 use anyhow::Result;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -16,7 +15,7 @@ use crate::agent::{AgentPersona, ToolRegistry};
 use crate::audio::{AudioCapture, AudioPlayback};
 use crate::config::AppConfig;
 use crate::llm::{ChatMessage, LlmClient};
-use crate::memory::{MemoryDatabase, KnowledgeBase};
+use crate::memory::{KnowledgeBase, MemoryDatabase};
 use crate::stt::SpeechToText;
 use crate::tts::TextToSpeech;
 use crate::ui::{AppState, VoiceAssistantApp};
@@ -99,7 +98,11 @@ impl AgentOrchestrator {
             .join("voice-assistant");
         match KnowledgeBase::new(&data_dir) {
             Ok(kb) => {
-                tracing::info!("Knowledge base: {} documents, {} chunks", kb.document_count(), kb.chunk_count());
+                tracing::info!(
+                    "Knowledge base: {} documents, {} chunks",
+                    kb.document_count(),
+                    kb.chunk_count()
+                );
                 self.kb = Some(Arc::new(Mutex::new(kb)));
             }
             Err(e) => {
@@ -122,10 +125,7 @@ impl AgentOrchestrator {
             }
         }
 
-        match AudioPlayback::new(
-            self.config.audio.sample_rate,
-            self.config.audio.channels,
-        ) {
+        match AudioPlayback::new(self.config.audio.sample_rate, self.config.audio.channels) {
             Ok(playback) => {
                 self.playback = Some(playback);
                 tracing::info!("Audio playback ready");
@@ -212,7 +212,10 @@ impl AgentOrchestrator {
 
             // 保存用户消息到数据库
             if let Some(ref db) = self.db {
-                let _ = db.lock().unwrap().save_conversation(&self.session_id, "user", &user_text);
+                let _ = db
+                    .lock()
+                    .unwrap()
+                    .save_conversation(&self.session_id, "user", &user_text);
             }
 
             // 更新 UI
@@ -228,7 +231,10 @@ impl AgentOrchestrator {
 
             // 保存助手回复到数据库
             if let Some(ref db) = self.db {
-                let _ = db.lock().unwrap().save_conversation(&self.session_id, "assistant", &response);
+                let _ =
+                    db.lock()
+                        .unwrap()
+                        .save_conversation(&self.session_id, "assistant", &response);
             }
 
             // 更新 UI
@@ -263,7 +269,10 @@ impl AgentOrchestrator {
             // ===== 剪贴板监听 =====
             if self.clipboard_monitoring {
                 if let Some(clip_text) = self.tools.check_clipboard_change() {
-                    tracing::info!("Clipboard changed: {}", &clip_text[..clip_text.len().min(50)]);
+                    tracing::info!(
+                        "Clipboard changed: {}",
+                        &clip_text[..clip_text.len().min(50)]
+                    );
                 }
             }
 
@@ -322,13 +331,11 @@ impl AgentOrchestrator {
                 // 启动音量更新线程
                 let volume = capture.volume.clone();
                 let app_state = self.app_state.clone();
-                let vol_thread = std::thread::spawn(move || {
-                    loop {
-                        let vol = *volume.lock().unwrap();
-                        let mut app = app_state.lock().unwrap();
-                        app.volume_level = vol;
-                        std::thread::sleep(std::time::Duration::from_millis(50));
-                    }
+                let vol_thread = std::thread::spawn(move || loop {
+                    let vol = *volume.lock().unwrap();
+                    let mut app = app_state.lock().unwrap();
+                    app.volume_level = vol;
+                    std::thread::sleep(std::time::Duration::from_millis(50));
                 });
 
                 let result = capture.record_blocking(duration);
@@ -394,15 +401,11 @@ impl AgentOrchestrator {
         // 调用 LLM（带流式输出）
         if let Some(ref mut llm) = self.llm {
             if llm.is_available() {
-                let response = llm.chat_stream(
-                    user_text,
-                    Some(&system_prompt),
-                    &history,
-                    |token| {
+                let response =
+                    llm.chat_stream(user_text, Some(&system_prompt), &history, |token| {
                         let mut app = app_state_clone.lock().unwrap();
                         app.status_message = format!("Mini: {}", token);
-                    },
-                );
+                    });
 
                 match response {
                     Ok(text) => return text,
@@ -570,7 +573,8 @@ impl AgentOrchestrator {
         tracing::info!("Extracting memories from conversation...");
 
         // 收集最近的对话
-        let recent: Vec<String> = self.chat_history
+        let recent: Vec<String> = self
+            .chat_history
             .iter()
             .rev()
             .take(self.config.memory.extract_interval * 2)
@@ -600,7 +604,11 @@ impl AgentOrchestrator {
 
         if let Some(ref mut llm) = self.llm {
             if llm.is_available() {
-                match llm.chat_sync(&extraction_prompt, Some("你是一个记忆提取助手。只输出提取的记忆列表，每行一条。"), &[]) {
+                match llm.chat_sync(
+                    &extraction_prompt,
+                    Some("你是一个记忆提取助手。只输出提取的记忆列表，每行一条。"),
+                    &[],
+                ) {
                     Ok(extracted) => {
                         let extracted = extracted.trim();
                         if extracted.is_empty() || extracted == "无" || extracted.len() < 5 {
@@ -622,12 +630,24 @@ impl AgentOrchestrator {
                                     let category = line[..pos].trim().to_string();
                                     let content = line[pos + 1..].trim().to_string();
                                     if !content.is_empty() {
-                                        let _ = db.save_memory(&content, &category, Some("llm_extract"), None, 0.6);
+                                        let _ = db.save_memory(
+                                            &content,
+                                            &category,
+                                            Some("llm_extract"),
+                                            None,
+                                            0.6,
+                                        );
                                         count += 1;
                                     }
                                 } else {
                                     // 没有类别前缀，作为事实存储
-                                    let _ = db.save_memory(line, "fact", Some("llm_extract"), None, 0.5);
+                                    let _ = db.save_memory(
+                                        line,
+                                        "fact",
+                                        Some("llm_extract"),
+                                        None,
+                                        0.5,
+                                    );
                                     count += 1;
                                 }
                             }
@@ -661,12 +681,11 @@ impl AgentOrchestrator {
         };
 
         let db = db.lock().unwrap();
-        if let Ok(conversations) = db.get_recent_conversations(&self.session_id, self.max_history_turns * 2) {
+        if let Ok(conversations) =
+            db.get_recent_conversations(&self.session_id, self.max_history_turns * 2)
+        {
             for (role, content, _) in conversations {
-                self.chat_history.push(ChatMessage {
-                    role,
-                    content,
-                });
+                self.chat_history.push(ChatMessage { role, content });
             }
             if !self.chat_history.is_empty() {
                 tracing::info!("Loaded {} messages from history", self.chat_history.len());

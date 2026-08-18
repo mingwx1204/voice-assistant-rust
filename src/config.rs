@@ -1,7 +1,6 @@
 /// config.rs — 全局配置参数
 /// ============================
 /// 所有可调参数集中管理
-
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -124,7 +123,7 @@ impl Default for AppConfig {
             memory: MemoryConfig {
                 db_path: data_dir.join("memory.db"),
                 short_memory_turns: 10,
-                extract_interval: 3,    // 每 3 轮提炼一次记忆
+                extract_interval: 3, // 每 3 轮提炼一次记忆
                 top_k: 5,
                 rrf_k: 60.0,
             },

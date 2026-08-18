@@ -1,7 +1,6 @@
 /// main.rs — Voice Assistant 入口 v0.3.0
 /// =========================================
 /// 完整版：GUI + 系统托盘 + 全局热键 + 全功能
-
 pub mod agent;
 pub mod audio;
 pub mod config;
@@ -41,10 +40,7 @@ fn main() -> Result<()> {
     let app_state = Arc::new(Mutex::new(VoiceAssistantApp::new()));
 
     // 创建编排器
-    let mut orchestrator = agent::AgentOrchestrator::new(
-        config.clone(),
-        app_state.clone(),
-    );
+    let mut orchestrator = agent::AgentOrchestrator::new(config.clone(), app_state.clone());
 
     // 初始化组件
     if let Err(e) = orchestrator.initialize() {
@@ -114,16 +110,30 @@ fn setup_fonts(ctx: &egui::Context) {
     for font_path in &chinese_font_paths {
         if let Ok(font_data) = std::fs::read(font_path) {
             tracing::info!("Loading Chinese font: {}", font_path);
-            fonts.font_data.insert("chinese".to_owned(), egui::FontData::from_owned(font_data).into());
-            fonts.families.entry(FontFamily::Proportional).or_default().insert(0, "chinese".to_owned());
-            fonts.families.entry(FontFamily::Monospace).or_default().insert(0, "chinese".to_owned());
+            fonts.font_data.insert(
+                "chinese".to_owned(),
+                egui::FontData::from_owned(font_data).into(),
+            );
+            fonts
+                .families
+                .entry(FontFamily::Proportional)
+                .or_default()
+                .insert(0, "chinese".to_owned());
+            fonts
+                .families
+                .entry(FontFamily::Monospace)
+                .or_default()
+                .insert(0, "chinese".to_owned());
             loaded = true;
             break;
         }
     }
 
-    if loaded { tracing::info!("Chinese font loaded"); }
-    else { tracing::warn!("No Chinese font found"); }
+    if loaded {
+        tracing::info!("Chinese font loaded");
+    } else {
+        tracing::warn!("No Chinese font found");
+    }
 
     ctx.set_fonts(fonts);
 }
