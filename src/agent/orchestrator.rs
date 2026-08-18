@@ -332,20 +332,25 @@ impl AgentOrchestrator {
 
         match &mut self.capture {
             Some(capture) => {
-                // 启动音量更新线程
+                // 启动音量更新线程（带停止信号）
                 let volume = capture.volume.clone();
                 let app_state = self.app_state.clone();
-                let vol_thread = std::thread::spawn(move || loop {
-                    let vol = *volume.lock().unwrap();
-                    let mut app = app_state.lock().unwrap();
-                    app.volume_level = vol;
-                    std::thread::sleep(std::time::Duration::from_millis(50));
+                let running = Arc::new(std::sync::atomic::AtomicBool::new(true));
+                let running_clone = running.clone();
+                let vol_thread = std::thread::spawn(move || {
+                    while running_clone.load(std::sync::atomic::Ordering::Relaxed) {
+                        let vol = *volume.lock().unwrap();
+                        let mut app = app_state.lock().unwrap();
+                        app.volume_level = vol;
+                        std::thread::sleep(std::time::Duration::from_millis(50));
+                    }
                 });
 
                 let result = capture.record_blocking(duration);
 
                 // 停止音量更新线程
-                drop(vol_thread);
+                running.store(false, std::sync::atomic::Ordering::Relaxed);
+                let _ = vol_thread.join();
 
                 result
             }
