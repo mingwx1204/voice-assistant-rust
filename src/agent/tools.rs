@@ -135,6 +135,13 @@ impl ToolRegistry {
         {
             return Some(self.screenshot());
         }
+        // 3.5 代码执行（在系统命令之前，避免"运行"关键词冲突）
+        if ["运行代码", "执行代码", "跑代码", "run code"]
+            .iter()
+            .any(|k| t.contains(k))
+        {
+            return Some(self.run_code(t));
+        }
         // 4. 系统命令
         if [
             "打开", "启动", "运行", "关闭", "关机", "重启", "锁屏", "休眠",
