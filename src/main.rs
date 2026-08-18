@@ -2,14 +2,14 @@
 /// =========================================
 /// 完整版：GUI + 系统托盘 + 全局热键 + 全功能
 
-mod agent;
-mod audio;
-mod config;
-mod llm;
-mod memory;
-mod stt;
-mod tts;
-mod ui;
+pub mod agent;
+pub mod audio;
+pub mod config;
+pub mod llm;
+pub mod memory;
+pub mod stt;
+pub mod tts;
+pub mod ui;
 
 use anyhow::Result;
 use eframe::egui;

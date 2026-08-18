@@ -1,11 +1,91 @@
 /// ui/mod.rs — 用户界面
 /// =======================
-/// egui 即时模式 GUI — 完整版
+/// egui 即时模式 GUI — v0.4.0
 
 pub mod tray;
 pub mod hotkey;
 
 use eframe::egui;
+
+/// 简单的 Markdown 渲染器
+pub fn render_markdown(ui: &mut egui::Ui, text: &str) {
+    for line in text.lines() {
+        let line = line.trim();
+
+        // 标题
+        if line.starts_with("### ") {
+            ui.heading(&line[4..]);
+        } else if line.starts_with("## ") {
+            ui.heading(&line[3..]);
+        } else if line.starts_with("# ") {
+            ui.heading(&line[2..]);
+        }
+        // 加粗
+        else if line.starts_with("**") && line.ends_with("**") {
+            let bold_text = &line[2..line.len()-2];
+            ui.label(egui::RichText::new(bold_text).strong());
+        }
+        // 列表项
+        else if line.starts_with("- ") || line.starts_with("* ") {
+            ui.horizontal(|ui| {
+                ui.label("•");
+                ui.label(&line[2..]);
+            });
+        }
+        // 编号列表
+        else if line.chars().next().map_or(false, |c| c.is_ascii_digit()) && line.contains(". ") {
+            ui.label(line);
+        }
+        // 代码块
+        else if line.starts_with("```") {
+            // 跳过代码块标记
+        }
+        // 引用
+        else if line.starts_with("> ") {
+            let quote_text = &line[2..];
+            ui.horizontal(|ui| {
+                ui.colored_label(egui::Color32::from_rgb(150, 150, 150), "│");
+                ui.label(egui::RichText::new(quote_text).italics());
+            });
+        }
+        // 分隔线
+        else if line == "---" || line == "***" || line == "___" {
+            ui.separator();
+        }
+        // 普通文本
+        else if !line.is_empty() {
+            // 处理行内格式
+            let mut job = egui::text::LayoutJob::default();
+            let words: Vec<&str> = line.split(' ').collect();
+            for (i, word) in words.iter().enumerate() {
+                if i > 0 {
+                    job.append(" ", 0.0, egui::TextFormat::default());
+                }
+                if word.starts_with("**") && word.ends_with("**") {
+                    job.append(&word[2..word.len()-2], 0.0, egui::TextFormat {
+                        font_id: egui::FontId::proportional(14.0),
+                        color: egui::Color32::WHITE,
+                        ..Default::default()
+                    });
+                } else if word.starts_with("`") && word.ends_with("`") {
+                    job.append(&word[1..word.len()-1], 0.0, egui::TextFormat {
+                        font_id: egui::FontId::monospace(13.0),
+                        color: egui::Color32::from_rgb(100, 200, 100),
+                        background: egui::Color32::from_rgb(40, 40, 50),
+                        ..Default::default()
+                    });
+                } else {
+                    job.append(word, 0.0, egui::TextFormat::default());
+                }
+            }
+            ui.label(job);
+        }
+        // 空行
+        else {
+            ui.add_space(4.0);
+        }
+    }
+}
 
 /// 聊天消息
 #[derive(Debug, Clone)]
@@ -298,7 +378,12 @@ impl eframe::App for VoiceAssistantApp {
                                 .inner_margin(8.0);
 
                             frame.show(ui, |ui| {
-                                ui.label(&msg.content);
+                                // 对助手回复使用 Markdown 渲染
+                                if msg.role == "assistant" {
+                                    render_markdown(ui, &msg.content);
+                                } else {
+                                    ui.label(&msg.content);
+                                }
                             });
                         }
                     }

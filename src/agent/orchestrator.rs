@@ -473,38 +473,72 @@ impl AgentOrchestrator {
         }
 
         if let Some(ref tts) = self.tts {
-            match tts.synthesize(text) {
-                Ok(audio) => {
-                    let resampled = if tts.sample_rate() != self.config.audio.sample_rate {
-                        self.resample(&audio, tts.sample_rate(), self.config.audio.sample_rate)
-                    } else {
-                        audio
-                    };
+            tts.set_playing(true);
+            let sample_rate = tts.sample_rate();
+            let config_sample_rate = self.config.audio.sample_rate;
 
+            // 流式合成并播放
+            let _ = tts.synthesize_streaming(text, |wav_data| {
+                if let Ok(samples) = Self::wav_to_samples(&wav_data) {
+                    let resampled = if sample_rate != config_sample_rate {
+                        Self::resample_static(&samples, sample_rate, config_sample_rate)
+                    } else {
+                        samples
+                    };
+                    // 播放每个 chunk
                     if let Some(ref playback) = self.playback {
-                        match playback.play(&resampled) {
-                            Ok(handle) => {
-                                handle.wait_or_interrupt(Duration::from_millis(100));
-                            }
-                            Err(e) => {
-                                tracing::error!("Playback failed: {}", e);
-                            }
+                        if let Ok(handle) = playback.play(&resampled) {
+                            handle.wait_or_interrupt(Duration::from_millis(50));
                         }
                     }
                 }
-                Err(e) => {
-                    tracing::error!("TTS synthesis failed: {}", e);
-                }
-            }
+            });
+
+            tts.set_playing(false);
         } else {
-            tracing::warn!("TTS not available, simulating playback");
-            std::thread::sleep(Duration::from_secs(1));
+            tracing::warn!("TTS not available");
+            std::thread::sleep(Duration::from_millis(500));
         }
 
         {
             let mut app = self.app_state.lock().unwrap();
             app.set_state(AppState::Idle);
         }
+    }
+
+    /// WAV 字节 → f32 采样
+    fn wav_to_samples(wav_data: &[u8]) -> Result<Vec<f32>> {
+        let mut reader = hound::WavReader::new(std::io::Cursor::new(wav_data))?;
+        let spec = reader.spec();
+        let samples: Vec<f32> = match spec.sample_format {
+            hound::SampleFormat::Int => reader
+                .samples::<i32>()
+                .map(|s| s.map(|v| v as f32 / (1i32 << (spec.bits_per_sample - 1)) as f32))
+                .collect::<Result<Vec<_>, _>>()?,
+            hound::SampleFormat::Float => reader.samples::<f32>().collect::<Result<Vec<_>, _>>()?,
+        };
+        Ok(samples)
+    }
+
+    /// 静态重采样
+    fn resample_static(input: &[f32], from_rate: u32, to_rate: u32) -> Vec<f32> {
+        let ratio = from_rate as f64 / to_rate as f64;
+        let output_len = (input.len() as f64 / ratio) as usize;
+        let mut output = Vec::with_capacity(output_len);
+        for i in 0..output_len {
+            let src_idx = i as f64 * ratio;
+            let idx = src_idx as usize;
+            let frac = src_idx - idx as f64;
+            let sample = if idx + 1 < input.len() {
+                input[idx] as f64 * (1.0 - frac) + input[idx + 1] as f64 * frac
+            } else if idx < input.len() {
+                input[idx] as f64
+            } else {
+                0.0
+            };
+            output.push(sample as f32);
+        }
+        output
     }
 
     /// ===== 通用 LLM 调用 =====

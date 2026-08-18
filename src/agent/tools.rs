@@ -143,6 +143,18 @@ impl ToolRegistry {
         if ["记住","记一下","记着","以后记得"].iter().any(|k| t.contains(k)) {
             return Some(self.remember(t));
         }
+        // 15. 对话搜索
+        if ["搜索对话","查找对话","搜历史","找之前"].iter().any(|k| t.contains(k)) {
+            return Some(self.search_conversation(t));
+        }
+        // 16. 代码执行
+        if ["运行代码","执行代码","跑代码","run code"].iter().any(|k| t.contains(k)) {
+            return Some(self.run_code(t));
+        }
+        // 17. 情感分析
+        if ["分析情感","你的情绪","我的心情","情绪分析"].iter().any(|k| t.contains(k)) {
+            return Some(self.analyze_emotion(t));
+        }
         None
     }
 
@@ -304,26 +316,24 @@ impl ToolRegistry {
 
     // ==================== 6. 翻译 ====================
     fn translate(&self, t: &str) -> ToolResult {
-        // 提取目标语言和要翻译的文本
-        let (lang, text) = if let Some(pos) = t.find("翻译成英语") {
-            ("English", t[pos+4..].trim())
+        // 提取翻译关键词后面的内容
+        let text = if let Some(pos) = t.find("翻译成英语") {
+            t.get(pos..).unwrap_or("").trim_start_matches("翻译成英语").trim()
         } else if let Some(pos) = t.find("翻译成中文") {
-            ("Chinese", t[pos+5..].trim())
+            t.get(pos..).unwrap_or("").trim_start_matches("翻译成中文").trim()
         } else if let Some(pos) = t.find("翻译成日语") {
-            ("Japanese", t[pos+5..].trim())
-        } else if let Some(pos) = t.find("translate to english") {
-            ("English", t[pos+21..].trim())
-        } else if t.starts_with("翻译") {
-            ("English", t.trim_start_matches("翻译").trim())
+            t.get(pos..).unwrap_or("").trim_start_matches("翻译成日语").trim()
+        } else if let Some(pos) = t.find("翻译") {
+            t.get(pos..).unwrap_or("").trim_start_matches("翻译").trim()
         } else {
-            ("English", t)
+            t.trim()
         };
 
         if text.is_empty() {
             return ToolResult::simple("你想翻译什么？");
         }
 
-        let prompt = format!("将以下文本翻译成{}，只输出翻译结果：\n{}", lang, text);
+        let prompt = format!("将以下文本翻译成英语，只输出翻译结果：\n{}", text);
         ToolResult::llm("", &prompt)
     }
 
@@ -529,5 +539,104 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             Ok(_) => ToolResult::simple(&format!("好的，记住了：{}",c)),
             Err(e) => ToolResult::simple(&format!("保存失败: {}",e)),
         }
+    }
+
+    // ==================== 15. 对话搜索 ====================
+    fn search_conversation(&self, t: &str) -> ToolResult {
+        let kws = ["搜索对话","查找对话","搜历史","找之前","搜索","查找"];
+        let mut q = t.to_string();
+        for k in &kws { q = q.replace(k,""); }
+        let q = q.trim();
+        if q.is_empty() { return ToolResult::simple("你想搜索什么对话？"); }
+
+        let Some(ref db)=self.db else { return ToolResult::simple("数据库不可用"); };
+        let db = db.lock().unwrap();
+
+        // 搜索对话记录
+        match db.search_memories_fts(q, 5) {
+            Ok(results) => {
+                if results.is_empty() {
+                    ToolResult::simple(&format!("没找到关于「{}」的对话记录", q))
+                } else {
+                    let mut lines = vec![format!("找到{}条相关记录：", results.len())];
+                    for (_, content, category, _) in &results {
+                        lines.push(format!("- [{}] {}", category, content));
+                    }
+                    ToolResult::simple(&lines.join("\n"))
+                }
+            }
+            Err(e) => ToolResult::simple(&format!("搜索失败: {}", e)),
+        }
+    }
+
+    // ==================== 16. 代码执行 ====================
+    fn run_code(&self, t: &str) -> ToolResult {
+        // 提取代码
+        let code = t.replace("运行代码","").replace("执行代码","").replace("跑代码","").replace("run code","").trim().to_string();
+
+        if code.is_empty() {
+            return ToolResult::simple("你想运行什么代码？说\"运行代码 print('hello')\"");
+        }
+
+        // 安全检查：只允许 Python 和简单命令
+        if code.contains("import os") || code.contains("subprocess") || code.contains("exec(") || code.contains("__import__") {
+            return ToolResult::simple("⚠️ 安全限制：不允许执行危险代码");
+        }
+
+        // 尝试用 Python 执行
+        match std::process::Command::new("python")
+            .args(["-c", &code])
+            .output()
+        {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                if output.status.success() {
+                    let result = if stdout.len() > 500 { format!("{}...", &stdout[..500]) } else { stdout };
+                    ToolResult::simple(&format!("✅ 执行结果：\n{}", result))
+                } else {
+                    ToolResult::simple(&format!("❌ 执行错误：\n{}", stderr))
+                }
+            }
+            Err(e) => ToolResult::simple(&format!("执行失败: {}", e)),
+        }
+    }
+
+    // ==================== 17. 情感分析 ====================
+    fn analyze_emotion(&self, t: &str) -> ToolResult {
+        let raw = t.replace("分析情感","").replace("你的情绪","").replace("我的心情","").replace("情绪分析","");
+        let text = raw.trim().to_string();
+        if text.is_empty() {
+            return ToolResult::simple("你想分析什么内容的情感？");
+        }
+
+        // 简单的关键词情感分析
+        let (emotion, score) = if text.contains("开心") || text.contains("高兴") || text.contains("快乐") || text.contains("太好了") {
+            ("😊 开心", 0.9)
+        } else if text.contains("难过") || text.contains("伤心") || text.contains("不开心") || text.contains("郁闷") {
+            ("😢 难过", 0.8)
+        } else if text.contains("生气") || text.contains("愤怒") || text.contains("烦") || text.contains("讨厌") {
+            ("😠 生气", 0.85)
+        } else if text.contains("担心") || text.contains("焦虑") || text.contains("紧张") || text.contains("害怕") {
+            ("😰 焦虑", 0.75)
+        } else if text.contains("感谢") || text.contains("谢谢") || text.contains("感恩") {
+            ("🙏 感激", 0.85)
+        } else if text.contains("无聊") || text.contains("没意思") || text.contains("没劲") {
+            ("😒 无聊", 0.7)
+        } else {
+            ("😐 平静", 0.5)
+        };
+
+        ToolResult::simple(&format!("情感分析结果：{}\n置信度：{:.0}%\n建议：{}", emotion, score * 100.0,
+            match emotion {
+                "😊 开心" => "保持好心情！",
+                "😢 难过" => "需要聊聊吗？我在。",
+                "😠 生气" => "深呼吸，冷静一下。",
+                "😰 焦虑" => "别担心，一切都会好的。",
+                "🙏 感激" => "不客气，很高兴能帮到你！",
+                "😒 无聊" => "要不要听个故事？",
+                _ => "有什么我能帮你的吗？",
+            }
+        ))
     }
 }
