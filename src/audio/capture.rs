@@ -4,7 +4,7 @@
 
 use anyhow::{Context, Result};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{Device, SampleFormat, SampleRate, Stream, StreamConfig};
+use cpal::{Device, SampleFormat, StreamConfig};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 
@@ -19,7 +19,7 @@ pub struct AudioCapture {
 
 impl AudioCapture {
     /// 创建音频采集器
-    pub fn new(sample_rate: u32, channels: u16, _block_size: usize) -> Result<Self> {
+    pub fn new(_sample_rate: u32, _channels: u16, _block_size: usize) -> Result<Self> {
         let host = cpal::default_host();
         let device = host
             .default_input_device()

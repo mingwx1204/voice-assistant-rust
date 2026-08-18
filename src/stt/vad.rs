@@ -13,6 +13,7 @@ pub struct VadResult {
 
 /// 能量 VAD（简单但有效的语音活动检测）
 pub struct SileroVad {
+    #[allow(dead_code)]
     sample_rate: u32,
     threshold: f32,
     energy_threshold: f32,

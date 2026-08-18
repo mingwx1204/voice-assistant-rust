@@ -256,7 +256,6 @@ impl LlmClient {
             anyhow::bail!("LLM API error: {} - {}", status, body);
         }
 
-        let mut full_reply = String::new();
         let mut buffer = String::new();
 
         // 逐行读取 SSE 流
@@ -285,7 +284,7 @@ impl LlmClient {
             }
         }
 
-        full_reply = buffer;
+        let full_reply = buffer;
 
         let elapsed = start.elapsed();
         tracing::info!(

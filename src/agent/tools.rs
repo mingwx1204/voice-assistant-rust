@@ -23,6 +23,7 @@ impl ToolResult {
     fn llm(output: &str, prompt: &str) -> Self {
         Self { output: output.to_string(), should_respond: true, needs_llm: true, llm_prompt: Some(prompt.to_string()) }
     }
+    #[allow(dead_code)]
     fn none() -> Self {
         Self { output: String::new(), should_respond: false, needs_llm: false, llm_prompt: None }
     }
@@ -50,6 +51,7 @@ pub struct ToolRegistry {
     pub quick_phrases: Vec<QuickPhrase>,
     pub scheduled_tasks: Vec<ScheduledTask>,
     pub last_score: Option<i32>,
+    #[allow(dead_code)]
     task_counter: u32,
 }
 
@@ -459,7 +461,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             if l.contains("result-link")||l.contains("result__a") {
                 if let Some(s) = l.find("href=\"") {
                     let r = &l[s+6..];
-                    if let Some(e) = r.find('"') {
+                    if let Some(_e) = r.find('"') {
                         let txt = if let Some(ts)=r.find('>') { if let Some(te)=r[ts..].find("</a>") { r[ts+1..ts+te].trim().replace("<b>","").replace("</b>","") } else { String::new() } } else { String::new() };
                         if !txt.is_empty() && res.len()<5 { res.push(format!("{}. {}",res.len()+1,txt)); }
                     }

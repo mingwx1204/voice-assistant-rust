@@ -9,6 +9,7 @@ use std::process::Command;
 /// Piper TTS 引擎
 pub struct PiperTts {
     model_path: PathBuf,
+    #[allow(dead_code)]
     sample_rate: u32,
 }
 

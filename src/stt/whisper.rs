@@ -11,6 +11,7 @@ pub struct WhisperStt {
     context: WhisperContext,
     language: String,
     beam_size: i32,
+    #[allow(dead_code)]
     use_gpu: bool,
 }
 

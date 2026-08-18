@@ -5,7 +5,6 @@
 pub mod piper;
 
 use anyhow::Result;
-use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use crate::config::TtsConfig;

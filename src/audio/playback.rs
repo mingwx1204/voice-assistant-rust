@@ -4,7 +4,7 @@
 
 use anyhow::{Context, Result};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{Device, SampleFormat, SampleRate, Stream, StreamConfig};
+use cpal::{Device, SampleFormat, Stream, StreamConfig};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -16,7 +16,7 @@ pub struct AudioPlayback {
 
 impl AudioPlayback {
     /// 创建音频播放器
-    pub fn new(sample_rate: u32, channels: u16) -> Result<Self> {
+    pub fn new(_sample_rate: u32, _channels: u16) -> Result<Self> {
         let host = cpal::default_host();
         let device = host
             .default_output_device()
