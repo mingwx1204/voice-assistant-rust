@@ -19,6 +19,19 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+      
+      # 安装 LLVM (whisper-rs 需要 libclang)
+      - name: Install LLVM
+        run: choco install llvm -y
+        env:
+         ChocolateyInstallLocation: C:\ProgramData\chocolatey
+      
+      - name: Set LIBCLANG_PATH
+        run: |
+          $llvmPath = "C:\Program Files\LLVM\bin"
+          echo "LIBCLANG_PATH=$llvmPath" >> $env:GITHUB_ENV
+          echo "PATH=$llvmPath;$env:PATH" >> $env:GITHUB_ENV
+      
       - run: cargo fmt --check
       - run: cargo clippy -- -D warnings
 
@@ -30,6 +43,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      
+      - name: Install LLVM
+        run: choco install llvm -y
+        env:
+         ChocolateyInstallLocation: C:\ProgramData\chocolatey
+      
+      - name: Set LIBCLANG_PATH
+        run: |
+          $llvmPath = "C:\Program Files\LLVM\bin"
+          echo "LIBCLANG_PATH=$llvmPath" >> $env:GITHUB_ENV
+          echo "PATH=$llvmPath;$env:PATH" >> $env:GITHUB_ENV
+      
       - run: cargo test
 
   build:
@@ -40,6 +65,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      
+      - name: Install LLVM
+        run: choco install llvm -y
+        env:
+         ChocolateyInstallLocation: C:\ProgramData\chocolatey
+      
+      - name: Set LIBCLANG_PATH
+        run: |
+          $llvmPath = "C:\Program Files\LLVM\bin"
+          echo "LIBCLANG_PATH=$llvmPath" >> $env:GITHUB_ENV
+          echo "PATH=$llvmPath;$env:PATH" >> $env:GITHUB_ENV
+      
       - run: cargo build --release
       - name: Create zip
         run: Compress-Archive -Path target/release/voice-assistant.exe -DestinationPath voice-assistant-windows-x64.zip
